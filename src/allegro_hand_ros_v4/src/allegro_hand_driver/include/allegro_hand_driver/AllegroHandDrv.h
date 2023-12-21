@@ -74,7 +74,6 @@ public:
 
 private:
     void* _can_handle;                      ///< CAN device(driver) handle
-
     double _curr_position[DOF_JOINTS];      ///< current joint position (radian)
     double _curr_torque[DOF_JOINTS];        ///< current joint torque (Nm)
     double _desired_position[DOF_JOINTS];   ///< desired joint position (radian)

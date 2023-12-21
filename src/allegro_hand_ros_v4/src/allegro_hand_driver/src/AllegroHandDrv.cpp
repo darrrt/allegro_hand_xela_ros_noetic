@@ -78,6 +78,8 @@ AllegroHandDrv::AllegroHandDrv()
     , _emergency_stop(false)
 {
     ROS_INFO("AllegroHandDrv instance is constructed.");
+    // CANAPI::canSocket _can_socket;
+    // _can_handle=&_can_socket;
 }
 
 AllegroHandDrv::~AllegroHandDrv()
@@ -102,6 +104,7 @@ static inline std::string &rtrim(std::string &s)
 
 bool AllegroHandDrv::init(int mode)
 {
+    
     string CAN_CH;
     ros::param::get("~comm/CAN_CH", CAN_CH);
     rtrim(CAN_CH);  // Ensure the ROS parameter has no trailing whitespace.
@@ -110,7 +113,7 @@ bool AllegroHandDrv::init(int mode)
         ROS_ERROR("Invalid (empty) CAN channel, cannot proceed. Check PCAN comms.");
         return false;
     }
-
+    
     if (CANAPI::command_can_open_with_name(_can_handle, CAN_CH.c_str())) {
         _can_handle = 0;
         return false;

@@ -10,6 +10,7 @@
         pkg="rviz" type="rviz"
         args="-d $(find allegro_hand_description)/allegro_hand_config.rviz" >
     <remap from="/tf" to="/allegroHand_$(arg NUM)/tf"/>
+    <!-- <remap from="joint_states" to="allegroHand_$(arg NUM)/joint_states"/> -->
   </node>
 
 </launch>

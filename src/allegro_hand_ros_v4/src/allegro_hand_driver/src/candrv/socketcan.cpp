@@ -49,16 +49,22 @@
 #include <stdio.h>
 #include <errno.h>
 #ifndef _WIN32
-#include <inttypes.h>
-#include <pthread.h>
-#include <syslog.h>
-#include <unistd.h>
-#include <fcntl.h>
+    #include <inttypes.h>
+    #include <pthread.h>
+    #include <syslog.h>
+    #include <unistd.h>
+    #include <fcntl.h>
 #else
-#include <windows.h>
+    #include <windows.h>
 #endif
 #include <malloc.h>
 #include <assert.h>
+
+#include <sys/socket.h>
+#include <sys/ioctl.h>
+#include<linux/can.h>
+#include<linux/can/raw.h>
+#include<net/if.h>
 
 
 typedef unsigned int DWORD;
@@ -107,19 +113,57 @@ unsigned char CAN_ID = 0;
 /*==========================================*/
 /*       Private functions prototypes       */
 /*==========================================*/
-int canReadMsg(void* ch, int *id, int *len, unsigned char *data, int blocking, int timeout_usec);
-int canSendMsg(void* ch, int id, char len, unsigned char *data, int blocking, int timeout_usec);
-int canSentRTR(void* ch, int id, int blocking, int timeout_usec);
+
+class canHandler{
+    private:
+        int s;
+        // socket
+        struct sockaddr_can addr;
+        struct ifreq ifr;
+        socklen_t socklenLen = sizeof(addr);
+    public:
+        canHandler();
+        ~canHandler();
+        int canReadMsg(int *id, int *len, unsigned char *data, int blocking, int timeout_usec);
+        int canSendMsg(int id, char len, unsigned char *data, int blocking, int timeout_usec);
+        int canSentRTR(int id, int blocking, int timeout_usec);
+        int canInit(const char* dev_name);
+        int canFlush();
+        int canClose();
+};
 /*========================================*/
 /*       Public functions (CAN API)       */
 /*========================================*/
-int canInit(void* ch)
+canHandler::canHandler()
+{
+    ROS_INFO("create can handler");
+    // CANAPI::canSocket _can_socket;
+    // _can_handle=&_can_socket;
+}
+canHandler::~canHandler()
+{
+    canClose();
+    ROS_INFO("auto destroy can handler");
+
+}
+int canHandler::canInit(const char* dev_name)
 {
     // The first step before doing anything is to create a socket. This function accepts three parameters – domain/protocol family (PF_CAN), type of socket (raw or datagram) and socket protocol. If successful, the function then returns a file descriptor.
-    if ((*(int *)ch = socket(PF_CAN, SOCK_RAW, CAN_RAW)) < 0) {
-    perror("Socket");
+    if ((s = socket(PF_CAN, SOCK_RAW, CAN_RAW)) < 0) {
+    ROS_ERROR("can err Socket");
     return 1;
     }
+    strcpy(ifr.ifr_name, dev_name );
+    ioctl(s, SIOCGIFINDEX, &ifr);
+    // Armed with the interface index, we can now bind the socket to the CAN Interface:
+    memset(&addr, 0, sizeof(addr));
+    addr.can_family = AF_CAN;
+    addr.can_ifindex = ifr.ifr_ifindex;
+    if (bind(s, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+        ROS_ERROR("can Bind");
+        return 1;
+    }
+    // int err;
 
     // int err;
     // int i;
@@ -149,60 +193,61 @@ int canInit(void* ch)
     return 0; // PCAN_ERROR_OK
 }
 
-int canReadMsg(void* ch, int *id, int *len, unsigned char *data, int blocking, int timeout_usec){
+int canHandler::canReadMsg(int *id, int *len, unsigned char *data, int blocking, int timeout_usec){
     int nbytes;
     struct can_frame frame;
-
-    nbytes = read(*(int *)ch, &frame, sizeof(struct can_frame));
-
-    if (nbytes < 0) {
-    ROS_ERROR("can Read");
-    return 1;
-    }
-
-    printf("0x%03X [%d] ",frame.can_id, frame.can_dlc);
-    *id = (frame.can_id & 0xfffffffc) >> 2;
-    *len = frame.can_dlc;
-    for (unsigned int i = 0; i < frame.can_dlc; i++)
-        data[i] = frame.data[i];
 
     // int err;
     // int i;
     // TPCANRdMsg CanMsg;
 
-    // if (blocking || timeout_usec < 0) {
-    //     err = LINUX_CAN_Read(ch, &CanMsg);
-    // }
-    // else {
-    //     err = LINUX_CAN_Read_Timeout(ch, &CanMsg, timeout_usec);
-    //     if (CAN_ERR_QRCVEMPTY == err) // when receive queue is empty...
-    //         return err;
-    // }
+    if (blocking || timeout_usec < 0) {
+        // 好像nonblocking 写错了 
+        // ROS_INFO("blocking read");
+        // err = LINUX_CAN_Read(ch, &CanMsg);
+        // nbytes = read(s, &frame, sizeof(struct can_frame));
+        nbytes = recvfrom(s,&frame, sizeof(struct can_frame),0,(struct sockaddr*)&addr,&socklenLen);
+    }
+    else {
+        nbytes = recvfrom(s,&frame, sizeof(struct can_frame),MSG_DONTWAIT,(struct sockaddr*)&addr,&socklenLen);
+        // nbytes = read(s, &frame, sizeof(struct can_frame));
+        ROS_INFO("nonblocking read");
+        // err = LINUX_CAN_Read_Timeout(ch, &CanMsg, timeout_usec);
+        // if (CAN_ERR_QRCVEMPTY == err) // when receive queue is empty...
+        //     return err;
+        // if (nbytes < 0) {
+        //     ROS_ERROR("can Read");
+        //     return 1;
+        // }
+    }
 
     // if (err) {
     //     ROS_ERROR("CAN: CAN_Read() failed with error %x", err);
     //     return err;
     // }
 
+
+
+
     // *id = (CanMsg.Msg.ID & 0xfffffffc) >> 2;;
     // *len = CanMsg.Msg.LEN;
     // for(i = 0; i < CanMsg.Msg.LEN; i++)
     //     data[i] = CanMsg.Msg.DATA[i];
 
+    // printf("0x%03X [%d] ",frame.can_id, frame.can_dlc);
+    *id = (frame.can_id & 0xfffffffc) >> 2;
+    *len = frame.can_dlc;
+    for (unsigned int i = 0; i < frame.can_dlc; i++)
+        data[i] = frame.data[i];
     // return 0;
 }
 
-int canSendMsg(void* ch, int id, char len, unsigned char *data, int blocking, int timeout_usec){
+int canHandler::canSendMsg(int id, char len, unsigned char *data, int blocking, int timeout_usec){
     struct can_frame frame;
 
     frame.can_id = (id << 2) | CAN_ID;
     frame.can_dlc = len & 0x0F;
     sprintf((char *)frame.data, (char *)data);
-
-    if (write(*(int *)ch, &frame, sizeof(struct can_frame)) != sizeof(struct can_frame)) {
-        ROS_ERROR("can Write");
-        return 1;
-    }
     // int err;
     // int i;
     // TPCANMsg CanMsg;
@@ -212,8 +257,27 @@ int canSendMsg(void* ch, int id, char len, unsigned char *data, int blocking, in
     // for(i = 0; i < len; i++)
     //     CanMsg.DATA[i] = data[i];
 
-    // if (blocking || timeout_usec < 0)
-    //     err = CAN_Write(ch, &CanMsg);
+    if (blocking || timeout_usec < 0){
+        // ROS_INFO("blocking send");
+        // err = CAN_Write(ch, &CanMsg);
+        // if (write(s, &frame, sizeof(struct can_frame)) != sizeof(struct can_frame)) {
+        //     ROS_ERROR("can Write");
+        //     return 1;
+        // }
+        if (sendto(s, &frame, sizeof(struct can_frame),0, (struct sockaddr*)&addr, socklenLen) != sizeof(struct can_frame)) {
+            ROS_ERROR("can Write");
+            return 1;
+        }
+        
+    }else{
+        if (sendto(s, &frame, sizeof(struct can_frame),MSG_DONTWAIT, (struct sockaddr*)&addr, socklenLen) != sizeof(struct can_frame)) {
+            ROS_ERROR("can Write");
+            return 1;
+        }
+        
+        ROS_INFO("nonblocking send");
+    }
+
     // else
     //     err = LINUX_CAN_Write_Timeout(ch, &CanMsg, timeout_usec);
 
@@ -223,17 +287,30 @@ int canSendMsg(void* ch, int id, char len, unsigned char *data, int blocking, in
     // return err;
 }
 
-int canSentRTR(void* ch, int id, int blocking, int timeout_usec){
+int canHandler::canSentRTR(int id, int blocking, int timeout_usec){
     struct can_frame frame;
 
     frame.can_id = (id << 2) | CAN_ID;
     frame.can_dlc = 0;
 
-    if (write(*(int *)ch, &frame, sizeof(struct can_frame)) != sizeof(struct can_frame)) {
-        ROS_ERROR("can Write RTR");
-        return 1;
-    }
 
+    if (blocking || timeout_usec < 0){
+        // ROS_INFO("blocking rtr");
+        // if (write(s, &frame, sizeof(struct can_frame)) != sizeof(struct can_frame)) {
+        //     ROS_ERROR("can Write RTR");
+        //     return 1;
+        // }
+        if (sendto(s, &frame, sizeof(struct can_frame),0, (struct sockaddr*)&addr, socklenLen) != sizeof(struct can_frame)) {
+            ROS_ERROR("can Write RTR");
+            return 1;
+        }
+    }else{
+        ROS_INFO("nonblocking rtr");
+        if (sendto(s, &frame, sizeof(struct can_frame),MSG_DONTWAIT, (struct sockaddr*)&addr, socklenLen) != sizeof(struct can_frame)) {
+            ROS_ERROR("can Write");
+            return 1;
+        }
+    }
     // int err;
     // int i;
     // TPCANMsg CanMsg;
@@ -251,30 +328,34 @@ int canSentRTR(void* ch, int id, int blocking, int timeout_usec){
 
     // return err;
 }
-
+int canHandler::canFlush(){
+    int i;
+    // TPCANRdMsg CanMsg;
+    int nbytes;
+    struct can_frame frame;
+    for (i = 0; i < 100; i++) {
+        // LINUX_CAN_Read_Timeout(ch, &CanMsg, 1000);
+        // nbytes = read(*(int *)ch, &frame, sizeof(struct can_frame));
+        recvfrom(s,&frame, sizeof(struct can_frame),0,(struct sockaddr*)&addr,&socklenLen);
+    }
+}
+int canHandler::canClose(){
+    if (close(s) < 0) {
+        ROS_ERROR("CAN: Error in CAN_Close()");
+        return 1;
+    }
+}
 /*========================================*/
 /*       CAN API                          */
 /*========================================*/
 int command_can_open_with_name(void*& ch, const char* dev_name)
 {
     // Next, we must retrieve the interface index for the interface name (can0, can1, vcan0 etc) we wish to use. To do this we send an I/O control call and pass an ifreq structure containing the interface name:
-    struct ifreq ifr;
-    canInit(ch);
-
-    strcpy(ifr.ifr_name, dev_name );
-    ioctl(*(int *)ch, SIOCGIFINDEX, &ifr);
-    // Armed with the interface index, we can now bind the socket to the CAN Interface:
-    struct sockaddr_can addr;
-    memset(&addr, 0, sizeof(addr));
-    addr.can_family = AF_CAN;
-    addr.can_ifindex = ifr.ifr_ifindex;
-    if (bind(*(int *)ch, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
-    ROS_ERROR("can Bind");
-    return 1;
-    }
-    // int err;
-
+    canHandler _ch;
+    _ch.canInit(dev_name);
+    ch=(void*)&_ch;
     ROS_INFO("CAN: Opening device on channel [%s]", dev_name);
+    
     // ch = LINUX_CAN_Open(dev_name, O_RDWR);
     // if (!ch) {
     //     ROS_ERROR("CAN: Error in CAN_Open() on channel %s", dev_name);
@@ -301,15 +382,8 @@ int command_can_open_ex(void* ch, int type, int index)
 
 int command_can_flush(void* ch)
 {
-    int i;
-    // TPCANRdMsg CanMsg;
-    int nbytes;
-    struct can_frame frame;
-    for (i = 0; i < 100; i++) {
-        // LINUX_CAN_Read_Timeout(ch, &CanMsg, 1000);
-        nbytes = read(*(int *)ch, &frame, sizeof(struct can_frame));
-    }
 
+    ((canHandler*)ch)->canFlush();
     return 0;
 }
 
@@ -320,19 +394,7 @@ int command_can_reset(void* ch)
 
 int command_can_close(void* ch)
 {
-    if (close(*(int *)ch) < 0) {
-        ROS_ERROR("CAN: Error in CAN_Close()");
-        return 1;
-    }
-    // int err;
-
-    // err = CAN_Close(ch);
-    // if (err) {
-    //     ROS_ERROR("CAN: Error in CAN_Close()");
-    //     return -1;
-    // }
-
-    // return 0; // PCAN_ERROR_OK
+    ((canHandler*)ch)->canClose();
 }
 
 int command_can_set_id(void* ch, unsigned char can_id)
@@ -348,7 +410,7 @@ int command_servo_on(void* ch)
     int ret;
 
     Txid = ID_CMD_SYSTEM_ON;
-    ret = canSendMsg(ch, Txid, 0, data, TRUE, 0);
+    ret = ((canHandler*)ch)->canSendMsg(Txid, 0, data, TRUE, 0);
 
     return ret;
 }
@@ -360,7 +422,7 @@ int command_servo_off(void* ch)
     int ret;
 
     Txid = ID_CMD_SYSTEM_OFF;
-    ret = canSendMsg(ch, Txid, 0, data, TRUE, 0);
+    ret = ((canHandler*)ch)->canSendMsg(Txid, 0, data, TRUE, 0);
 
     return ret;
 }
@@ -389,7 +451,7 @@ int command_set_torque(void* ch, int findex, short* pwm)
 
         Txid = ID_CMD_SET_TORQUE_1 + findex;
 
-        ret = canSendMsg(ch, Txid, 8, data, TRUE, 0);
+        ret = ((canHandler*)ch)->canSendMsg(Txid, 8, data, TRUE, 0);
     }
     else
         return -1;
@@ -421,7 +483,7 @@ int command_set_pose(void* ch, int findex, short* jposition)
 
         Txid = ID_CMD_SET_POSE_1 + findex;
 
-        ret = canSendMsg(ch, Txid, 8, data, TRUE, 0);
+        ret = ((canHandler*)ch)->canSendMsg(Txid, 8, data, TRUE, 0);
     }
     else
         return -1;
@@ -449,7 +511,7 @@ int command_set_period(void* ch, short* period)
     {
         data[0] = data[1] = data[2] = data[3] = data[4] = data[5] = 0x0;
     }
-    ret = canSendMsg(ch, Txid, 6, data, TRUE, 0);
+    ret = ((canHandler*)ch)->canSendMsg(Txid, 6, data, TRUE, 0);
 
     return ret;
 }
@@ -464,7 +526,7 @@ int command_set_device_id(void* ch, unsigned char did)
     data[0] = did | 0x80;
     data[1] = 0x0;
     data[5] = 0x0;
-    ret = canSendMsg(ch, Txid, 6, data, TRUE, 0);
+    ret = ((canHandler*)ch)->canSendMsg(Txid, 6, data, TRUE, 0);
 
     return ret;
 }
@@ -482,7 +544,7 @@ int command_set_rs485_baudrate(void* ch, unsigned int baudrate)
     data[3] = (unsigned char)( (baudrate >> 16) & 0x000000ff);
     data[4] = (unsigned char)( (baudrate >> 24) & 0x000000ff) | 0x80;
     data[5] = 0x0;
-    ret = canSendMsg(ch, Txid, 6, data, TRUE, 0);
+    ret = ((canHandler*)ch)->canSendMsg(Txid, 6, data, TRUE, 0);
 
     return ret;
 }
@@ -490,7 +552,7 @@ int command_set_rs485_baudrate(void* ch, unsigned int baudrate)
 int request_hand_information(void* ch)
 {
     long Txid = ID_RTR_HAND_INFO;
-    int ret = canSentRTR(ch, Txid, TRUE, 0);
+    int ret = ((canHandler*)ch)->canSentRTR(Txid, TRUE, 0);
 
     return ret;
 }
@@ -498,7 +560,7 @@ int request_hand_information(void* ch)
 int request_hand_serial(void* ch)
 {
     long Txid = ID_RTR_SERIAL;
-    int ret = canSentRTR(ch, Txid, TRUE, 0);
+    int ret = ((canHandler*)ch)->canSentRTR(Txid, TRUE, 0);
 
     return ret;
 }
@@ -508,7 +570,7 @@ int request_finger_pose(void* ch, int findex)
     assert(findex >= 0 && findex < NUM_OF_FINGERS);
 
     long Txid = ID_RTR_FINGER_POSE + findex;
-    int ret = canSentRTR(ch, Txid, TRUE, 0);
+    int ret = ((canHandler*)ch)->canSentRTR(Txid, TRUE, 0);
 
     return ret;
 }
@@ -516,7 +578,7 @@ int request_finger_pose(void* ch, int findex)
 int request_imu_data(void* ch)
 {
     long Txid = ID_RTR_IMU_DATA;
-    int ret = canSentRTR(ch, Txid, TRUE, 0);
+    int ret = ((canHandler*)ch)->canSentRTR(Txid, TRUE, 0);
 
     return ret;
 }
@@ -526,7 +588,7 @@ int request_temperature(void* ch, int sindex)
     assert(sindex >= 0 && sindex < NUM_OF_TEMP_SENSORS);
 
     long Txid = ID_RTR_TEMPERATURE + sindex;
-    int ret = canSentRTR(ch, Txid, TRUE, 0);
+    int ret = ((canHandler*)ch)->canSentRTR(Txid, TRUE, 0);
 
     return ret;
 }
@@ -534,14 +596,14 @@ int request_temperature(void* ch, int sindex)
 int can_write_message(void* ch, int id, int len, unsigned char* data, int blocking, int timeout_usec)
 {
     int err;
-    err = canSendMsg(ch, id, len, data, blocking, timeout_usec);
+    err = ((canHandler*)ch)->canSendMsg(id, len, data, blocking, timeout_usec);
     return err;
 }
 
 int can_read_message(void* ch, int* id, int* len, unsigned char* data, int blocking, int timeout_usec)
 {
     int err;
-    err = canReadMsg(ch, id, len, data, blocking, timeout_usec);
+    err = ((canHandler*)ch)->canReadMsg(id, len, data, blocking, timeout_usec);
     return err;
 }
 

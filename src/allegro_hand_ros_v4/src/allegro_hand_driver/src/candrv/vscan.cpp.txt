@@ -106,9 +106,9 @@ VSCAN_STATUS CanStatus;
 /*==========================================*/
 /*       Private functions prototypes       */
 /*==========================================*/
-int canReadMsg(void* ch, int *id, int *len, unsigned char *data, int blocking, int timeout_usec);
-int canSendMsg(void* ch, int id, char len, unsigned char *data, int blocking, int timeout_usec);
-int canSentRTR(void* ch, int id, int blocking, int timeout_usec);
+int canReadMsg(int* ch, int *id, int *len, unsigned char *data, int blocking, int timeout_usec);
+int canSendMsg(int* ch, int id, char len, unsigned char *data, int blocking, int timeout_usec);
+int canSentRTR(int* ch, int id, int blocking, int timeout_usec);
 
 /*========================================*/
 /*       Public functions (CAN API)       */
@@ -144,7 +144,7 @@ int canInit(char* ch)
     return 0; // PCAN_ERROR_OK
 }
 
-int canReadMsg(void* ch, int *id, int *len, unsigned char *data, int blocking, int timeout_usec){
+int canReadMsg(int* ch, int *id, int *len, unsigned char *data, int blocking, int timeout_usec){
     int err;
     int i;
     VSCAN_MSG CanMsg;
@@ -171,7 +171,7 @@ int canReadMsg(void* ch, int *id, int *len, unsigned char *data, int blocking, i
     return 0;
 }
 
-int canSendMsg(void* ch, int id, char len, unsigned char *data, int blocking, int timeout_usec){
+int canSendMsg(int* ch, int id, char len, unsigned char *data, int blocking, int timeout_usec){
     int err;
     int i;
     TPCANMsg CanMsg;
@@ -192,7 +192,7 @@ int canSendMsg(void* ch, int id, char len, unsigned char *data, int blocking, in
     return err;
 }
 
-int canSentRTR(void* ch, int id, int blocking, int timeout_usec){
+int canSentRTR(int* ch, int id, int blocking, int timeout_usec){
     int err;
     int i;
     TPCANMsg CanMsg;
@@ -232,19 +232,19 @@ int command_can_open_with_name(void*& ch, const char* dev_name)
     return err;
 }
 
-int command_can_open(void* ch)
+int command_can_open(int* ch)
 {
     ROS_ERROR("CAN: Error! Unsupported function call, can_open(void*&)");
     return -1;
 }
 
-int command_can_open_ex(void* ch, int type, int index)
+int command_can_open_ex(int* ch, int type, int index)
 {
     ROS_ERROR("CAN: Error! Unsupported function call, can_open(void*&, int, int)");
     return -1;
 }
 
-int command_can_flush(void* ch)
+int command_can_flush(int* ch)
 {
     int i;
     TPCANRdMsg CanMsg;
@@ -256,12 +256,12 @@ int command_can_flush(void* ch)
     return 0;
 }
 
-int command_can_reset(void* ch)
+int command_can_reset(int* ch)
 {
     return -1;
 }
 
-int command_can_close(void* ch)
+int command_can_close(int* ch)
 {
     int err;
 
@@ -274,13 +274,13 @@ int command_can_close(void* ch)
     return 0; // PCAN_ERROR_OK
 }
 
-int command_can_set_id(void* ch, unsigned char can_id)
+int command_can_set_id(int* ch, unsigned char can_id)
 {
     CAN_ID = can_id;
     return 0; //PCAN_ERROR_OK;
 }
 
-int command_servo_on(void* ch)
+int command_servo_on(int* ch)
 {
     long Txid;
     unsigned char data[8];
@@ -292,7 +292,7 @@ int command_servo_on(void* ch)
     return ret;
 }
 
-int command_servo_off(void* ch)
+int command_servo_off(int* ch)
 {
     long Txid;
     unsigned char data[8];
@@ -304,7 +304,7 @@ int command_servo_off(void* ch)
     return ret;
 }
 
-int command_set_torque(void* ch, int findex, short* pwm)
+int command_set_torque(int* ch, int findex, short* pwm)
 {
     assert(findex >= 0 && findex < NUM_OF_FINGERS);
 
@@ -336,7 +336,7 @@ int command_set_torque(void* ch, int findex, short* pwm)
     return ret;
 }
 
-int command_set_pose(void* ch, int findex, short* jposition)
+int command_set_pose(int* ch, int findex, short* jposition)
 {
     assert(findex >= 0 && findex < NUM_OF_FINGERS);
 
@@ -368,7 +368,7 @@ int command_set_pose(void* ch, int findex, short* jposition)
     return ret;
 }
 
-int command_set_period(void* ch, short* period)
+int command_set_period(int* ch, short* period)
 {
     long Txid;
     unsigned char data[8];
@@ -393,7 +393,7 @@ int command_set_period(void* ch, short* period)
     return ret;
 }
 
-int command_set_device_id(void* ch, unsigned char did)
+int command_set_device_id(int* ch, unsigned char did)
 {
     long Txid;
     unsigned char data[8];
@@ -408,7 +408,7 @@ int command_set_device_id(void* ch, unsigned char did)
     return ret;
 }
 
-int command_set_rs485_baudrate(void* ch, unsigned int baudrate)
+int command_set_rs485_baudrate(int* ch, unsigned int baudrate)
 {
     long Txid;
     unsigned char data[8];
@@ -426,7 +426,7 @@ int command_set_rs485_baudrate(void* ch, unsigned int baudrate)
     return ret;
 }
 
-int request_hand_information(void* ch)
+int request_hand_information(int* ch)
 {
     long Txid = ID_RTR_HAND_INFO;
     int ret = canSentRTR(ch, Txid, TRUE, 0);
@@ -434,7 +434,7 @@ int request_hand_information(void* ch)
     return ret;
 }
 
-int request_hand_serial(void* ch)
+int request_hand_serial(int* ch)
 {
     long Txid = ID_RTR_SERIAL;
     int ret = canSentRTR(ch, Txid, TRUE, 0);
@@ -442,7 +442,7 @@ int request_hand_serial(void* ch)
     return ret;
 }
 
-int request_finger_pose(void* ch, int findex)
+int request_finger_pose(int* ch, int findex)
 {
     assert(findex >= 0 && findex < NUM_OF_FINGERS);
 
@@ -452,7 +452,7 @@ int request_finger_pose(void* ch, int findex)
     return ret;
 }
 
-int request_imu_data(void* ch)
+int request_imu_data(int* ch)
 {
     long Txid = ID_RTR_IMU_DATA;
     int ret = canSentRTR(ch, Txid, TRUE, 0);
@@ -460,7 +460,7 @@ int request_imu_data(void* ch)
     return ret;
 }
 
-int request_temperature(void* ch, int sindex)
+int request_temperature(int* ch, int sindex)
 {
     assert(sindex >= 0 && sindex < NUM_OF_TEMP_SENSORS);
 
@@ -470,14 +470,14 @@ int request_temperature(void* ch, int sindex)
     return ret;
 }
 
-int can_write_message(void* ch, int id, int len, unsigned char* data, int blocking, int timeout_usec)
+int can_write_message(int* ch, int id, int len, unsigned char* data, int blocking, int timeout_usec)
 {
     int err;
     err = canSendMsg(ch, id, len, data, blocking, timeout_usec);
     return err;
 }
 
-int can_read_message(void* ch, int* id, int* len, unsigned char* data, int blocking, int timeout_usec)
+int can_read_message(int* ch, int* id, int* len, unsigned char* data, int blocking, int timeout_usec)
 {
     int err;
     err = canReadMsg(ch, id, len, data, blocking, timeout_usec);
