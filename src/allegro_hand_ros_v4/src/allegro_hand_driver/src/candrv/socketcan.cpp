@@ -267,7 +267,7 @@ int canHandler::canSendMsg(int id, char len, unsigned char *data, int blocking, 
         //     ROS_ERROR("can Write RTR");
         //     return 1;
         // }
-        err=sendto(s, &frame, sizeof(struct can_frame),MSG_TRUNC, (struct sockaddr*)&addr, socklenLen);
+        err=sendto(s, &frame, sizeof(struct can_frame),MSG_DONTWAIT, (struct sockaddr*)&addr, socklenLen);
         if (err!= sizeof(struct can_frame)) {
             ROS_ERROR("can Write send %d, id 0x%x",err,id);
             return 1;

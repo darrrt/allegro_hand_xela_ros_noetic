@@ -185,10 +185,10 @@ bool AllegroHandDrv::init(int mode)
     CANAPI::request_temperature(_can_handle,3);
     usleep(1000);
 
-    ROS_INFO("CAN: command_set_pose");
-    short pos=50;
-    CANAPI::command_set_pose(_can_handle,0,&pos);
-    usleep(1000);
+    // ROS_INFO("CAN: command_set_pose");
+    // short pos=50;
+    // CANAPI::command_set_pose(_can_handle,0,&pos);
+    // usleep(1000);
 
     return true;
 }
