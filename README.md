@@ -1,0 +1,1 @@
+this repo support the control of the allegro hand with linux socket-can (which supports most of can devices than pcan), modified from https://github.com/simlabrobotics/allegro_hand_ros_v4, and transferred the ros version from kinetic into noetic
