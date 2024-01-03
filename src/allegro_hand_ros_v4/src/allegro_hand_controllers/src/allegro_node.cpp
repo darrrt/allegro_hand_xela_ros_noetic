@@ -154,6 +154,9 @@ void AllegroNode::updateController() {
 
       frame++;
     }
+    // else{
+    //   ROS_INFO("joint not ready");
+    // }
   }
 
   if (lEmergencyStop < 0) {

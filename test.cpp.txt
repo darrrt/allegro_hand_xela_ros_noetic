@@ -1,50 +1,13 @@
-/*
- * Software License Agreement (BSD License)
- *
- *  Copyright (c) 2016, Wonik Robotics.
- *  All rights reserved.
- *
- *  Redistribution and use in source and binary forms, with or without
- *  modification, are permitted provided that the following conditions
- *  are met:
- *
- *   * Redistributions of source code must retain the above copyright
- *     notice, this list of conditions and the following disclaimer.
- *   * Redistributions in binary form must reproduce the above
- *     copyright notice, this list of conditions and the following
- *     disclaimer in the documentation and/or other materials provided
- *     with the distribution.
- *   * Neither the name of Wonik Robotics nor the names of its
- *     contributors may be used to endorse or promote products derived
- *     from this software without specific prior written permission.
- *
- *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- *  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- *  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
- *  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
- *  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
- *  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
- *  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- *  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
- *  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- *  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
- *  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- *  POSSIBILITY OF SUCH DAMAGE.
- */
-
-/*
- *  @file pcan.cpp
- *  @brief CAN API implementation to support PEAK CAN interface
- *
- *  Created on:         July 29, 2016
- *  Added to Project:   July 29, 2016
- *  Author:             Sean Yi
- *  Maintained by:      Sean Yi(seanyi@wonikrobotics.com)
- */
 
 /*======================*/
 /*       Includes       */
 /*======================*/
+#include<bits/stdc++.h>
+#define min(a,b) (((a)<(b))?(a):(b))
+#include<cstring>
+#include<iostream>
+#define TRUE (1)
+#define FALSE (0)
 //system headers
 #include <stdio.h>
 #include <errno.h>
@@ -87,16 +50,62 @@ extern "C" {
 // #endif
 }
 // all read is false, going to the nonblocking and polling read , all send is true, gointo the blocking write
-#include "candef.h"
-#include "candrv.h"
-#include "ros/ros.h" // for ROS_ERROR, ROS_INFO
 
+
+
+#ifndef __ALLEGROHAND_CANDEF_H__
+#define __ALLEGROHAND_CANDEF_H__
+
+#ifdef USING_NAMESPACE_CANAPI
+#   define CANAPI_BEGIN namespace CANAPI {
+#   define CANAPI_END };
+#else
+#   define CANAPI_BEGIN
+#   define CANAPI_END
+#   define CANAPI
+#endif
+
+
+////////////////////////////////////////////////
+//  Define CAN Command
+#define ID_CMD_SYSTEM_ON                0x40
+#define ID_CMD_SYSTEM_OFF               0x41
+#define ID_CMD_SET_TORQUE               0x60
+#define ID_CMD_SET_TORQUE_1             (ID_CMD_SET_TORQUE+0)
+#define ID_CMD_SET_TORQUE_2             (ID_CMD_SET_TORQUE+1)
+#define ID_CMD_SET_TORQUE_3             (ID_CMD_SET_TORQUE+2)
+#define ID_CMD_SET_TORQUE_4             (ID_CMD_SET_TORQUE+3)
+#define ID_CMD_SET_POSE_1               0xE0
+#define ID_CMD_SET_POSE_2               0xE1
+#define ID_CMD_SET_POSE_3               0xE2
+#define ID_CMD_SET_POSE_4               0xE3
+#define ID_CMD_SET_PERIOD               0x81
+#define ID_CMD_CONFIG                   0x68
+
+////////////////////////////////////////////////
+//  Define CAN Data Reqeust (RTR)
+#define ID_RTR_HAND_INFO                0x80
+#define ID_RTR_SERIAL                   0x88
+#define ID_RTR_FINGER_POSE              0x20
+#define ID_RTR_FINGER_POSE_1            (ID_RTR_FINGER_POSE+0)
+#define ID_RTR_FINGER_POSE_2            (ID_RTR_FINGER_POSE+1)
+#define ID_RTR_FINGER_POSE_3            (ID_RTR_FINGER_POSE+2)
+#define ID_RTR_FINGER_POSE_4            (ID_RTR_FINGER_POSE+3)
+#define ID_RTR_IMU_DATA                 0x30
+#define ID_RTR_TEMPERATURE              0x38
+#define ID_RTR_TEMPERATURE_1            (ID_RTR_TEMPERATURE+0)
+#define ID_RTR_TEMPERATURE_2            (ID_RTR_TEMPERATURE+1)
+#define ID_RTR_TEMPERATURE_3            (ID_RTR_TEMPERATURE+2)
+#define ID_RTR_TEMPERATURE_4            (ID_RTR_TEMPERATURE+3)
+
+#endif // __ALLEGROHAND_CANDEF_H__
 
 CANAPI_BEGIN
 
 /*=====================*/
 /*       Defines       */
 /*=====================*/
+
 //macros
 #define isAlpha(c) ( ((c >= 'A') && (c <= 'Z')) ? 1 : 0 )
 #define isSpace(c) ( (c == ' ') ? 1 : 0 )
@@ -137,21 +146,21 @@ class canHandler{
 /*========================================*/
 canHandler::canHandler()
 {
-    ROS_INFO("create can handler");
+    printf("create can handler");
     // CANAPI::canSocket _can_socket;
     // _can_handle=&_can_socket;
 }
 canHandler::~canHandler()
 {
     canClose();
-    ROS_INFO("auto destroy can handler");
+    printf("auto destroy can handler");
 
 }
 int canHandler::canInit(const char* dev_name)
 {
     // The first step before doing anything is to create a socket. This function accepts three parameters – domain/protocol family (PF_CAN), type of socket (raw or datagram) and socket protocol. If successful, the function then returns a file descriptor.
     if ((s = socket(PF_CAN, SOCK_RAW, CAN_RAW)) < 0) {
-    ROS_ERROR("can err Socket");
+    printf("can err Socket");
     return 1;
     }
     strcpy(ifr.ifr_name, dev_name );
@@ -161,7 +170,7 @@ int canHandler::canInit(const char* dev_name)
     addr.can_family = AF_CAN;
     addr.can_ifindex = ifr.ifr_ifindex;
     if (bind(s, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
-        ROS_ERROR("can Bind");
+        printf("can Bind");
         return 1;
     }
     // int err;
@@ -173,20 +182,20 @@ int canHandler::canInit(const char* dev_name)
 
     // err = CAN_VersionInfo(ch, CanVersion);
     // if (err) {
-    //     ROS_ERROR("CAN: Error in CAN_VersionInfo()");
+    //     printf("CAN: Error in CAN_VersionInfo()");
     // } else {
-    //     ROS_INFO("CAN: Version info: %s", CanVersion);
+    //     printf("CAN: Version info: %s", CanVersion);
     // }
 
-    ROS_INFO("CAN: init socket");
+    printf("CAN: init socket");
     // // init to an user defined bit rate
     // err = CAN_Init(ch, CAN_BAUD_1M, CAN_INIT_TYPE_ST);
     // if (err) {
-    //     ROS_ERROR("CAN: Error in CAN_Init()");
+    //     printf("CAN: Error in CAN_Init()");
     //     return err;
     // }
 
-    // ROS_INFO("CAN: Clearing the CAN buffer");
+    // printf("CAN: Clearing the CAN buffer");
     // for (i = 0; i < 100; i++) {
     //     LINUX_CAN_Read_Timeout(ch, &CanMsg, 1000);
     // }
@@ -204,27 +213,26 @@ int canHandler::canReadMsg(int *id, int *len, unsigned char *data, int blocking,
 
     if (blocking || timeout_usec < 0) {
         // 好像nonblocking 写错了 
-        // ROS_INFO("blocking read");
+        // printf("blocking read");
         // err = LINUX_CAN_Read(ch, &CanMsg);
         // nbytes = read(s, &frame, sizeof(struct can_frame));
         nbytes = recvfrom(s,&frame, sizeof(struct can_frame),0,(struct sockaddr*)&addr,&socklenLen);
     }
     else {
-        // 应该是执行这里，也就是无阻塞
-        nbytes = recvfrom(s,&frame, sizeof(struct can_frame),0,(struct sockaddr*)&addr,&socklenLen);
+        nbytes = recvfrom(s,&frame, sizeof(struct can_frame),MSG_DONTWAIT,(struct sockaddr*)&addr,&socklenLen);
         // nbytes = read(s, &frame, sizeof(struct can_frame));
-        // ROS_INFO("nonblocking read");
+        // printf("nonblocking read");
         // err = LINUX_CAN_Read_Timeout(ch, &CanMsg, timeout_usec);
         // if (CAN_ERR_QRCVEMPTY == err) // when receive queue is empty...
         //     return err;
         // if (nbytes < 0) {
-        //     ROS_ERROR("can Read");
+        //     printf("can Read");
         //     return 1;
         // }
     }
 
     // if (err) {
-    //     ROS_ERROR("CAN: CAN_Read() failed with error %x", err);
+    //     printf("CAN: CAN_Read() failed with error %x", err);
     //     return err;
     // }
 
@@ -241,8 +249,7 @@ int canHandler::canReadMsg(int *id, int *len, unsigned char *data, int blocking,
     *len = frame.can_dlc;
     for (unsigned int i = 0; i < frame.can_dlc; i++)
         data[i] = frame.data[i];
-    // ROS_INFO("readin nbytes %d, %s",nbytes,data);
-    return nbytes;
+    return 0;
 }
 
 int canHandler::canSendMsg(int id, char len, unsigned char *data, int blocking, int timeout_usec){
@@ -250,8 +257,7 @@ int canHandler::canSendMsg(int id, char len, unsigned char *data, int blocking, 
 
     frame.can_id = (CAN_SFF_MASK & ((id << 2) | CAN_ID));
     frame.can_dlc = len & 0x0F;
-    // sprintf((char *)frame.data, (char *)data);
-    memcpy(frame.data,data,sizeof(unsigned char)*8);
+    sprintf((char *)frame.data, (char *)data);
     int err;
     // int i;
     // TPCANMsg CanMsg;
@@ -262,28 +268,31 @@ int canHandler::canSendMsg(int id, char len, unsigned char *data, int blocking, 
     //     CanMsg.DATA[i] = data[i];
 
     if (blocking || timeout_usec < 0){
-        // ROS_INFO("blocking rtr");
+        // printf("blocking send");
+        // err = CAN_Write(ch, &CanMsg);
         // if (write(s, &frame, sizeof(struct can_frame)) != sizeof(struct can_frame)) {
-        //     ROS_ERROR("can Write RTR");
+        //     printf("can Write");
         //     return 1;
         // }
-        err=sendto(s, &frame, sizeof(struct can_frame),MSG_TRUNC, (struct sockaddr*)&addr, socklenLen);
-        if (err!= sizeof(struct can_frame)) {
-            ROS_ERROR("can Write send %d, id 0x%x",err,id);
+        err=sendto(s, &frame, sizeof(struct can_frame),0, (struct sockaddr*)&addr, socklenLen);
+        if (err != sizeof(struct can_frame)) {
+            printf("can Write %d",err);
             return 1;
         }
+        
     }else{
         if (sendto(s, &frame, sizeof(struct can_frame),MSG_DONTWAIT, (struct sockaddr*)&addr, socklenLen) != sizeof(struct can_frame)) {
-            ROS_ERROR("nonblocking can send");
+            printf("nonblocking can Write");
             return 1;
         }
+        
     }
 
     // else
     //     err = LINUX_CAN_Write_Timeout(ch, &CanMsg, timeout_usec);
 
     // if (err)
-    //     ROS_ERROR("CAN: CAN_Write() failed with error %d", err);
+    //     printf("CAN: CAN_Write() failed with error %d", err);
 
     // return err;
 }
@@ -296,19 +305,19 @@ int canHandler::canSentRTR(int id, int blocking, int timeout_usec){
 
     int err;
     if (blocking || timeout_usec < 0){
-        // ROS_INFO("blocking rtr");
+        // printf("blocking rtr");
         // if (write(s, &frame, sizeof(struct can_frame)) != sizeof(struct can_frame)) {
-        //     ROS_ERROR("can Write RTR");
+        //     printf("can Write RTR");
         //     return 1;
         // }
-        err=sendto(s, &frame, sizeof(struct can_frame),0, (struct sockaddr*)&addr, socklenLen);
+        sendto(s, &frame, sizeof(struct can_frame),0, (struct sockaddr*)&addr, socklenLen);
         if (err!= sizeof(struct can_frame)) {
-            ROS_ERROR("can Write RTR %d, id 0x%x",err,id);
+            printf("can Write RTR %d",err);
             return 1;
         }
     }else{
         if (sendto(s, &frame, sizeof(struct can_frame),MSG_DONTWAIT, (struct sockaddr*)&addr, socklenLen) != sizeof(struct can_frame)) {
-            ROS_ERROR("nonblocking can rtr");
+            printf("nonblocking can rtr");
             return 1;
         }
     }
@@ -325,7 +334,7 @@ int canHandler::canSentRTR(int id, int blocking, int timeout_usec){
     //     err = LINUX_CAN_Write_Timeout(ch, &CanMsg, timeout_usec);
 
     // if (err)
-    //     ROS_ERROR("CAN: CAN_Write() failed with error %d", err);
+    //     printf("CAN: CAN_Write() failed with error %d", err);
 
     // return err;
 }
@@ -342,7 +351,7 @@ int canHandler::canFlush(){
 }
 int canHandler::canClose(){
     if (close(s) < 0) {
-        ROS_ERROR("CAN: Error in CAN_Close()");
+        printf("CAN: Error in CAN_Close()");
         return 1;
     }
 }
@@ -352,34 +361,33 @@ int canHandler::canClose(){
 int command_can_open_with_name(void*& ch, const char* dev_name)
 {
     // Next, we must retrieve the interface index for the interface name (can0, can1, vcan0 etc) we wish to use. To do this we send an I/O control call and pass an ifreq structure containing the interface name:
-    // canHandler _ch;
-    // _ch.canInit(dev_name);
-    // ch=(void*)&_ch;
     ch= new canHandler;
     ((canHandler*)ch)->canInit(dev_name);
-    ROS_INFO("CAN: Opening device on channel [%s]", dev_name);
+    // ch=(void*)&_ch;
+    printf("CAN: Opening device on channel [%s]\n", dev_name);
     
     // ch = LINUX_CAN_Open(dev_name, O_RDWR);
     // if (!ch) {
-    //     ROS_ERROR("CAN: Error in CAN_Open() on channel %s", dev_name);
+    //     printf("CAN: Error in CAN_Open() on channel %s", dev_name);
     //     return -1;
     // }
     // else {
-    //     ROS_INFO("CAN: Channel %s(channel:=%d) is opend successfully", dev_name, *((int*)ch));
+    //     printf("CAN: Channel %s(channel:=%d) is opend successfully", dev_name, *((int*)ch));
     // }
 
     // return err;
+    return 0;
 }
 
 int command_can_open(void* ch)
 {
-    ROS_ERROR("CAN: Error! Unsupported function call, can_open(void*&)");
+    printf("CAN: Error! Unsupported function call, can_open(void*&)");
     return -1;
 }
 
 int command_can_open_ex(void* ch, int type, int index)
 {
-    ROS_ERROR("CAN: Error! Unsupported function call, can_open(void*&, int, int)");
+    printf("CAN: Error! Unsupported function call, can_open(void*&, int, int)");
     return -1;
 }
 
@@ -578,14 +586,6 @@ int request_finger_pose(void* ch, int findex)
     return ret;
 }
 
-int request_all_finger_pose(void* ch){
-    for(unsigned int idx=0;idx<NUM_OF_FINGERS;idx++){
-        request_finger_pose(ch,idx);
-    }
-    ROS_INFO("request all finger pose");
-    return 0;
-}
-
 int request_imu_data(void* ch)
 {
     long Txid = ID_RTR_IMU_DATA;
@@ -613,9 +613,233 @@ int can_write_message(void* ch, int id, int len, unsigned char* data, int blocki
 
 int can_read_message(void* ch, int* id, int* len, unsigned char* data, int blocking, int timeout_usec)
 {
-    // int err;
-    // err = ((canHandler*)ch)->canReadMsg(id, len, data, blocking, timeout_usec);
-    return ((canHandler*)ch)->canReadMsg(id, len, data, blocking, timeout_usec);;
+    int err;
+    err = ((canHandler*)ch)->canReadMsg(id, len, data, blocking, timeout_usec);
+    return err;
 }
 
-CANAPI_END
+#define MAX_DOF 16
+
+#define PWM_LIMIT_ROLL 250.0*1.5
+#define PWM_LIMIT_NEAR 450.0*1.5
+#define PWM_LIMIT_MIDDLE 300.0*1.5
+#define PWM_LIMIT_FAR 190.0*1.5
+
+#define PWM_LIMIT_THUMB_ROLL 350.0*1.5
+#define PWM_LIMIT_THUMB_NEAR 270.0*1.5
+#define PWM_LIMIT_THUMB_MIDDLE 180.0*1.5
+#define PWM_LIMIT_THUMB_FAR 180.0*1.5
+
+#define PWM_LIMIT_GLOBAL_8V 800.0 // maximum: 1200
+#define PWM_LIMIT_GLOBAL_24V 500.0
+#define PWM_LIMIT_GLOBAL_12V 1200.0
+enum eJointName
+{
+    eJOINTNAME_INDEX_0,
+    eJOINTNAME_INDEX_1,
+    eJOINTNAME_INDEX_2,
+    eJOINTNAME_INDEX_3,
+    eJOINTNAME_MIDDLE_0,
+    eJOINTNAME_MIDDLE_1,
+    eJOINTNAME_MIDDLE_2,
+    eJOINTNAME_MIDDLE_3,
+    eJOINTNAME_PINKY_0,
+    eJOINTNAME_PINKY_1,
+    eJOINTNAME_PINKY_2,
+    eJOINTNAME_PINKY_3,
+    eJOINTNAME_THUMB_0,
+    eJOINTNAME_THUMB_1,
+    eJOINTNAME_THUMB_2,
+    eJOINTNAME_THUMB_3,
+    DOF_JOINTS
+};
+
+void* _can_handle;                      ///< CAN device(driver) handle
+double _curr_position[DOF_JOINTS];      ///< current joint position (radian)
+double _curr_torque[DOF_JOINTS];        ///< current joint torque (Nm)
+double _desired_position[DOF_JOINTS];   ///< desired joint position (radian)
+double _desired_torque[DOF_JOINTS];     ///< desired joint torque (Nm)
+
+double _hand_version;                   ///< hand version
+double _tau_cov_const;                  ///< constant to convert joint torque to pwm command
+double _input_voltage;                  ///< input voltage
+
+int _curr_position_get;                 ///< bit flag telling which joint positions are updated (0x01:index 0x02:middle 0x04:pinky 0x08:thumb)
+
+double _pwm_max_global;                 ///< global max value of PWM command is limited by the input voltage
+double _pwm_max[DOF_JOINTS];            ///< max value of PWM command of each joint
+int    _encoder_offset[DOF_JOINTS];     ///< encoder offset
+int    _encoder_direction[DOF_JOINTS];  ///< encoder direction
+int    _motor_direction[DOF_JOINTS];    ///< motor direction
+
+volatile bool _emergency_stop;          ///< something goes wrong?
+void _parseMessage(int id, int len, unsigned char* data)
+{
+    int tmppos[4];
+    int lIndexBase;
+    int i;
+
+    //v4 
+    switch (id) 
+    {
+        case ID_RTR_HAND_INFO:
+        {
+            printf(">CAN(%d): AllegroHand hardware version: 0x%02x%02x\n", _can_handle, data[1], data[0]);
+            printf("                      firmware version: 0x%02x%02x\n", data[3], data[2]);
+            printf("                      hardware type: %d(%s)\n", data[4], (data[4] == 0 ? "right" : "left"));
+            printf("                      temperature: %d (celsius)\n", data[5]);
+            printf("                      status: 0x%02x\n", data[6]);
+            printf("                      servo status: %s\n", (data[6] & 0x01 ? "ON" : "OFF"));
+            printf("                      high temperature fault: %s\n", (data[6] & 0x02 ? "ON" : "OFF"));
+            printf("                      internal communication fault: %s\n", (data[6] & 0x04 ? "ON" : "OFF"));
+
+            _hand_version = data[1];
+            if (_hand_version==4)
+            {
+                //v4
+                _tau_cov_const = 1200.0;
+                _input_voltage = 12.0;
+                _pwm_max_global = PWM_LIMIT_GLOBAL_12V;
+            } else
+            {
+                //v3
+                _tau_cov_const = 800.0;
+                _input_voltage = 8.0;
+                _pwm_max_global = PWM_LIMIT_GLOBAL_8V;
+            }
+
+            _pwm_max[eJOINTNAME_INDEX_0] = min(_pwm_max_global, PWM_LIMIT_ROLL);
+            _pwm_max[eJOINTNAME_INDEX_1] = min(_pwm_max_global, PWM_LIMIT_NEAR);
+            _pwm_max[eJOINTNAME_INDEX_2] = min(_pwm_max_global, PWM_LIMIT_MIDDLE);
+            _pwm_max[eJOINTNAME_INDEX_3] = min(_pwm_max_global, PWM_LIMIT_FAR);
+
+            _pwm_max[eJOINTNAME_MIDDLE_0] = min(_pwm_max_global, PWM_LIMIT_ROLL);
+            _pwm_max[eJOINTNAME_MIDDLE_1] = min(_pwm_max_global, PWM_LIMIT_NEAR);
+            _pwm_max[eJOINTNAME_MIDDLE_2] = min(_pwm_max_global, PWM_LIMIT_MIDDLE);
+            _pwm_max[eJOINTNAME_MIDDLE_3] = min(_pwm_max_global, PWM_LIMIT_FAR);
+
+            _pwm_max[eJOINTNAME_PINKY_0] = min(_pwm_max_global, PWM_LIMIT_ROLL);
+            _pwm_max[eJOINTNAME_PINKY_1] = min(_pwm_max_global, PWM_LIMIT_NEAR);
+            _pwm_max[eJOINTNAME_PINKY_2] = min(_pwm_max_global, PWM_LIMIT_MIDDLE);
+            _pwm_max[eJOINTNAME_PINKY_3] = min(_pwm_max_global, PWM_LIMIT_FAR);
+
+            _pwm_max[eJOINTNAME_THUMB_0] = min(_pwm_max_global, PWM_LIMIT_THUMB_ROLL);
+            _pwm_max[eJOINTNAME_THUMB_1] = min(_pwm_max_global, PWM_LIMIT_THUMB_NEAR);
+            _pwm_max[eJOINTNAME_THUMB_2] = min(_pwm_max_global, PWM_LIMIT_THUMB_MIDDLE);
+            _pwm_max[eJOINTNAME_THUMB_3] = min(_pwm_max_global, PWM_LIMIT_THUMB_FAR);
+            
+
+        }
+            break;
+        case ID_RTR_SERIAL:
+        {
+            printf(">CAN(%d): AllegroHand serial number: SAH0%d0 %c%c%c%c%c%c%c%c\n", _can_handle, /*HAND_VERSION*/4
+                    , data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7]);
+        }
+            break;
+        case ID_RTR_FINGER_POSE_1:
+        case ID_RTR_FINGER_POSE_2:
+        case ID_RTR_FINGER_POSE_3:
+        case ID_RTR_FINGER_POSE_4:
+        {
+            int findex = (id & 0x00000007);
+
+            tmppos[0] = (short) (data[0] | (data[1] << 8));
+            tmppos[1] = (short) (data[2] | (data[3] << 8));
+            tmppos[2] = (short) (data[4] | (data[5] << 8));
+            tmppos[3] = (short) (data[6] | (data[7] << 8));
+
+            lIndexBase = findex * 4;
+
+            _curr_position[lIndexBase+0] = (double)(tmppos[0]) * ( 333.3 / 65536.0 ) * ( M_PI/180.0);
+            _curr_position[lIndexBase+1] = (double)(tmppos[1]) * ( 333.3 / 65536.0 ) * ( M_PI/180.0);
+            _curr_position[lIndexBase+2] = (double)(tmppos[2]) * ( 333.3 / 65536.0 ) * ( M_PI/180.0);
+            _curr_position[lIndexBase+3] = (double)(tmppos[3]) * ( 333.3 / 65536.0 ) * ( M_PI/180.0);
+
+            _curr_position_get |= (0x01 << (findex));
+        }
+            break;
+        case ID_RTR_IMU_DATA:
+        {
+            printf(">CAN(%d): AHRS Roll : 0x%02x%02x\n", _can_handle, data[0], data[1]);
+            printf("               Pitch: 0x%02x%02x\n", data[2], data[3]);
+            printf("               Yaw  : 0x%02x%02x\n", data[4], data[5]);
+        }
+            break;
+        case ID_RTR_TEMPERATURE_1:
+        case ID_RTR_TEMPERATURE_2:
+        case ID_RTR_TEMPERATURE_3:
+        case ID_RTR_TEMPERATURE_4:
+        {
+            int sindex = (id & 0x00000007);
+            int celsius = (int)(data[0]      ) |
+                            (int)(data[1] << 8 ) |
+                            (int)(data[2] << 16) |
+                            (int)(data[3] << 24);
+            printf(">CAN(%d): Temperature[%d]: %d (celsius)\n", _can_handle, sindex, celsius);
+        }
+            break;
+        default:
+            printf("unknown command %d, len %d", id, len);
+            for(int nd=0; nd<len; nd++)
+                printf("%d \n ", data[nd]);
+            return;
+    }
+}
+
+void _readDevices()
+{
+    int err;
+    int id;    
+    int len;
+    unsigned char data[8];
+
+    err = CANAPI::can_read_message(_can_handle, &id, &len, data, FALSE, 0);
+    while (!err) {
+        _parseMessage(id, len, data);
+        err = CANAPI::can_read_message(_can_handle, &id, &len, data, FALSE, 0);
+    }
+    //ROS_ERROR("can_read_message returns %d.", err); // PCAN_ERROR_QRCVEMPTY(32) from Peak CAN means "Receive queue is empty". It is not an error.
+}
+int main(){
+    std::string CAN_CH="slcan0";
+    // void* _can_handle=new canHandler;      
+    
+    if (CAN_CH.empty()) {
+        printf("Invalid (empty) CAN channel, cannot proceed. Check PCAN comms.");
+        return false;
+    }
+    if (CANAPI::command_can_open_with_name(_can_handle, CAN_CH.c_str())) {
+        printf("open failed");
+        _can_handle = 0;
+        return false;
+    }
+
+    printf("CAN: Flush CAN receive buffer");
+    CANAPI::command_can_flush(_can_handle);
+    usleep(1000);
+
+    printf("CAN: System Off");
+    CANAPI::command_servo_off(_can_handle);
+    usleep(1000);
+
+    printf("CAN: Request Hand Information");
+    CANAPI::request_hand_information(_can_handle);
+    usleep(1000);
+
+    printf("CAN: Request Hand Serial");
+    CANAPI::request_hand_serial(_can_handle);
+    usleep(1000);
+
+    printf("CAN: Setting loop period(:= 3ms) and initialize system");
+    short comm_period[3] = {3, 0, 0}; // millisecond {position, imu, temperature}
+    CANAPI::command_set_period(_can_handle, comm_period);
+
+    printf("CAN: System ON");
+    CANAPI::command_servo_on(_can_handle);
+    usleep(1000);
+
+    printf("CAN: Communicating\n");
+    _readDevices();
+    return true;
+}

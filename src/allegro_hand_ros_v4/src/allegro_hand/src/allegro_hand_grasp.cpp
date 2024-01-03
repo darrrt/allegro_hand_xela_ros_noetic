@@ -119,11 +119,14 @@ void AllegroNodeGrasp::initController(const std::string &whichHand) {
 }
 
 void AllegroNodeGrasp::doIt(bool polling) {
+  ROS_INFO("go into grasp doit");
   if (polling) {
     ROS_INFO("Polling = true.");
     while (ros::ok()) {
       updateController();
       ros::spinOnce();
+      printf("123123\n");
+      // 问题似乎在于这里只执行了一次
     }
   } else {
     ROS_INFO("Polling = false.");
@@ -143,6 +146,6 @@ int main(int argc, char **argv) {
     polling = true;
   }
   ROS_INFO("Start controller with polling = %d", polling);
-
+  
   grasping.doIt(polling);
 }

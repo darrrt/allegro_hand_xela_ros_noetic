@@ -197,13 +197,18 @@ int request_hand_information(void* ch);
 int request_hand_serial(void* ch);
 
 /**
+ * @brief request_all_finger_pose
+ * @param ch
+ * @return
+ */
+int request_all_finger_pose(void* ch);
+/**
  * @brief request_finger_pose
  * @param ch
  * @param findex [0,3]
  * @return
  */
 int request_finger_pose(void* ch, int findex);
-
 /**
  * @brief request_imu_data
  * @param ch

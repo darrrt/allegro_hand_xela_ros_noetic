@@ -52,7 +52,7 @@
        *The default controller is 'grasp' which employs the included grasping library (libBHand). -->
 
   <arg name="POLLING" default="true"/> <!-- true, false for polling the CAN communication -->
-
+<!-- TODO: 注意这里 -->
   <!-- ls -l /dev/pcan* to see your open CAN ports. Auto means find it
        automatically, and ignores the CAN_DEVICE argument. -->
   <arg name="AUTO_CAN" default="false" />

@@ -121,19 +121,19 @@ bool AllegroHandDrv::init(int mode)
 
     ROS_INFO("CAN: Flush CAN receive buffer");
     CANAPI::command_can_flush(_can_handle);
-    usleep(100);
+    usleep(1000);
 
     ROS_INFO("CAN: System Off");
     CANAPI::command_servo_off(_can_handle);
-    usleep(100);
-
+    usleep(1000);
+    // 0x41
     ROS_INFO("CAN: Request Hand Information");
     CANAPI::request_hand_information(_can_handle);
-    usleep(100);
-
+    usleep(1000);
+    // 0x80
     ROS_INFO("CAN: Request Hand Serial");
     CANAPI::request_hand_serial(_can_handle);
-    usleep(100);
+    usleep(1000);
 
     ROS_INFO("CAN: Setting loop period(:= 3ms) and initialize system");
     short comm_period[3] = {3, 0, 0}; // millisecond {position, imu, temperature}
@@ -141,9 +141,54 @@ bool AllegroHandDrv::init(int mode)
 
     ROS_INFO("CAN: System ON");
     CANAPI::command_servo_on(_can_handle);
-    usleep(100);
+    usleep(1000);
 
     ROS_INFO("CAN: Communicating");
+
+    ROS_INFO("CAN: Request Hand Information");
+    CANAPI::request_hand_information(_can_handle);
+    usleep(1000);
+
+    ROS_INFO("CAN: request_finger_pose 0");
+    CANAPI::request_finger_pose(_can_handle,0);
+    usleep(1000);
+
+    ROS_INFO("CAN: request_finger_pose 1");
+    CANAPI::request_finger_pose(_can_handle,1);
+    usleep(1000);
+
+    ROS_INFO("CAN: request_finger_pose 2");
+    CANAPI::request_finger_pose(_can_handle,2);
+    usleep(1000);
+
+    ROS_INFO("CAN: request_finger_pose 3");
+    CANAPI::request_finger_pose(_can_handle,3);
+    usleep(1000);
+
+    ROS_INFO("CAN: request_imu_data");
+    CANAPI::request_imu_data(_can_handle);
+    usleep(1000);
+
+    ROS_INFO("CAN: request_tem_data 0");
+    CANAPI::request_temperature(_can_handle,0);
+    usleep(1000);
+
+    ROS_INFO("CAN: request_tem_data 1");
+    CANAPI::request_temperature(_can_handle,1);
+    usleep(1000);
+
+    ROS_INFO("CAN: request_tem_data 2");
+    CANAPI::request_temperature(_can_handle,2);
+    usleep(1000);
+
+    ROS_INFO("CAN: request_tem_data 3");
+    CANAPI::request_temperature(_can_handle,3);
+    usleep(1000);
+
+    ROS_INFO("CAN: command_set_pose");
+    short pos=50;
+    CANAPI::command_set_pose(_can_handle,0,&pos);
+    usleep(1000);
 
     return true;
 }
@@ -152,7 +197,8 @@ int AllegroHandDrv::readCANFrames()
 {
     if (_emergency_stop)
         return -1;
-
+    // CANAPI::request_all_finger_pose(_can_handle);
+    // CANAPI::request_finger_pose(_can_handle,0);
     _readDevices();
     //usleep(10);
 
@@ -216,16 +262,21 @@ void AllegroHandDrv::getJointInfo(double *position)
 
 void AllegroHandDrv::_readDevices()
 {
-    int err;
+    int nbytes;
     int id;    
     int len;
     unsigned char data[8];
 
-    err = CANAPI::can_read_message(_can_handle, &id, &len, data, FALSE, 0);
-    while (!err) {
+    nbytes = CANAPI::can_read_message(_can_handle, &id, &len, data, FALSE, 0);
+    // while (nbytes) {
+        // 感觉好像是卡在这个while循环里面了
+    //     _parseMessage(id, len, data);
+    //     nbytes = CANAPI::can_read_message(_can_handle, &id, &len, data, FALSE, 0);
+    // }
+    if (nbytes){
         _parseMessage(id, len, data);
-        err = CANAPI::can_read_message(_can_handle, &id, &len, data, FALSE, 0);
     }
+    
     //ROS_ERROR("can_read_message returns %d.", err); // PCAN_ERROR_QRCVEMPTY(32) from Peak CAN means "Receive queue is empty". It is not an error.
 }
 
@@ -342,6 +393,7 @@ void AllegroHandDrv::_parseMessage(int id, int len, unsigned char* data)
             _curr_position[lIndexBase+3] = (double)(tmppos[3]) * ( 333.3 / 65536.0 ) * ( M_PI/180.0);
 
             _curr_position_get |= (0x01 << (findex));
+            // printf(">CAN(%d): finger pose[%d]: %d %d %d %d %d (celsius)\n", _can_handle, findex, _curr_position[lIndexBase+0],_curr_position[lIndexBase+1],_curr_position[lIndexBase+2],_curr_position[lIndexBase+3]);
         }
             break;
         case ID_RTR_IMU_DATA:
@@ -361,7 +413,7 @@ void AllegroHandDrv::_parseMessage(int id, int len, unsigned char* data)
                             (int)(data[1] << 8 ) |
                             (int)(data[2] << 16) |
                             (int)(data[3] << 24);
-            printf(">CAN(%d): Temperature[%d]: %d (celsius)\n", _can_handle, sindex, celsius);
+            printf(">CAN(%d): Temperature[%d]: %d %d %d %d %d (celsius)\n", _can_handle, sindex, celsius,data[0],data[1],data[2],data[3]);
         }
             break;
         default:

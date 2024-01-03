@@ -9,7 +9,7 @@ set(CMAKE_CXX_FLAGS "-std=c++0x ${CMAKE_CXX_FLAGS}")
 find_package(catkin REQUIRED COMPONENTS
   allegro_hand_driver
   bhand
-  libpcan
+  # libpcan
   roscpp
   sensor_msgs
 # roslaunch  # Disabled due to testing
